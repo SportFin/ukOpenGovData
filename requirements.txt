@@ -1,3 +1,4 @@
 Django
 pandas
 tqdm
+boto3
