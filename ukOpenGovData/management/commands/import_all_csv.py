@@ -33,10 +33,10 @@ class Command(BaseCommand):
         logging.info(f"Creating database for {app_name}")
         logging.info(separator)
         db_params = {
-            "host": "uk-gov-ext-db.cg8yobxbtndo.eu-west-2.rds.amazonaws.com",
-            "user": "postgres",
-            "password": "govOpenData!",
-            "port": "5432",
+            "host": os.environ["HOST"],
+            "user": os.environ["USER"],
+            "password": os.environ["PASSWORD"],
+            "port": os.environ["PORT"],
         }
         if app_name == "policeData":
             start_date = datetime.strptime("2020-07", "%Y-%m")
