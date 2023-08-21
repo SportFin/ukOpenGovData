@@ -1,7 +1,9 @@
 # ukOpenGovData
 External open gov database creation
 
-All static CSVs for the data are in an s3 bucket here:
+All static CSVs for the data are in an s3 bucket here: "https://sportfinpublicdata.s3.eu-west-2.amazonaws.com/"
+
+**Warning**: Do not run if database connection already has data.
 
 To use repo: 
 - clone to local
