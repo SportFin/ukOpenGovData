@@ -1,4 +1,6 @@
 import os
+import psycopg2
+from psycopg2 import sql
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
@@ -30,6 +32,12 @@ class Command(BaseCommand):
         logging.info(separator)
         logging.info(f"Creating database for {app_name}")
         logging.info(separator)
+        db_params = {
+            "host": "uk-gov-ext-db.cg8yobxbtndo.eu-west-2.rds.amazonaws.com",
+            "user": "postgres",
+            "password": "govOpenData!",
+            "port": "5432",
+        }
         if app_name == "policeData":
             start_date = datetime.strptime("2020-07", "%Y-%m")
             end_date = datetime.strptime("2023-06", "%Y-%m")
@@ -39,6 +47,17 @@ class Command(BaseCommand):
                 start_date += relativedelta(months=1)
             for month in tqdm(months, position=0, desc="Progress: "):
                 month_dir = static_dir + month
+                conn = psycopg2.connect(**db_params)
+                # Create a new database
+                cursor = conn.cursor()
+                conn.autocommit = True
+                db_cmd = sql.SQL("CREATE DATABASE {} WITH OWNER = {};").format(
+                    sql.Identifier(f"{app_name}-{month}"),
+                    sql.Identifier(db_params["user"]),
+                )
+                cursor.execute(db_cmd)
+                cursor.close()
+                conn.close()
                 # List objects in month dir
                 response = S3_CLIENT.list_objects_v2(
                     Bucket=S3_BUCKET_NAME, Prefix=month_dir
@@ -51,14 +70,25 @@ class Command(BaseCommand):
                 ]
                 logging.info(f"CSV Files Identified for {month}:")
                 logging.info(csv_filenames)
-                db_dir = os.path.join(BASE_DIR, "databases", app_name, month)
                 for csv in tqdm(
-                    csv_filenames, desc=f"Creating databases from CSVs for {month}"
+                    csv_filenames, desc=f"Creating tables from CSVs for {month}"
                 ):
+                    model_name = csv.split(month_dir)[1][:-4]
                     csv_path = S3_BUCKET_URL + csv
-                    create_db(csv_path, db_dir, f"{app_name}-{month}")
+                    create_db(csv_path, db_params, f"{app_name}-{month}", model_name)
 
         else:
+            conn = psycopg2.connect(**db_params)
+            # Create a new database
+            cursor = conn.cursor()
+            conn.autocommit = True
+            db_cmd = sql.SQL("CREATE DATABASE {} WITH OWNER = {};").format(
+                sql.Identifier(app_name),
+                sql.Identifier(db_params["user"]),
+            )
+            cursor.execute(db_cmd)
+            cursor.close()
+            conn.close()
             # List objects in the S3 bucket with the specified prefix
             response = S3_CLIENT.list_objects_v2(
                 Bucket=S3_BUCKET_NAME, Prefix=static_dir
@@ -73,9 +103,9 @@ class Command(BaseCommand):
 
             logging.info("CSV Files Identified:")
             logging.info(csv_filenames)
-            db_dir = os.path.join(BASE_DIR, "databases", app_name)
             for csv in tqdm(csv_filenames, desc="Creating databases from CSVs"):
+                model_name = csv.split(static_dir)[1][:-4]
                 csv_path = S3_BUCKET_URL + csv
-                create_db(csv_path, db_dir, app_name)
+                create_db(csv_path, db_params, app_name, model_name)
 
         print("Creation logs in", os.path.join(BASE_DIR, "db_create.log"))
